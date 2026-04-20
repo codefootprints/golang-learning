@@ -1,4 +1,26 @@
-# .gitignore
+# Binaries (Hasil build Go)
 main
 practice2
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Docker
+.docker
+*.log
+
+# OS Metadata
 .DS_Store
+Thumbs.db
+
+# Go dependencies & IDE
+vendor/
+.idea/
+.vscode/
+*.swp
+*.out
+
+# Database data (Jika folder volume ada di dalam proyek)
+postgres_data/
