@@ -22,7 +22,7 @@ var db *gorm.DB
 func initDB() {
 	dsn := "host=db user=user password=password dbname=taskdb port=5432 sslmode=disable"
 	var err error
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 		if err == nil {
 			fmt.Println("Berhasil konek ke database!")
@@ -37,6 +37,12 @@ func initDB() {
 	}
 
 	db.AutoMigrate(&Task{}) // Otomatis bikin tabel
+}
+
+// Pindahkan logika ini ke luar main() agar bisa dipanggil oleh file test
+func CreateTaskLogic(task Task) (Task, error) {
+	result := db.Create(&task)
+	return task, result.Error
 }
 
 func main() {
@@ -57,8 +63,13 @@ func main() {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		db.Create(&newTask) // Simpan permanen ke Postgres
-		c.JSON(http.StatusCreated, newTask)
+
+		createdTask, err := CreateTaskLogic(newTask)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal simpan"})
+			return
+		}
+		c.JSON(http.StatusCreated, createdTask)
 	})
 
 	router.Run(":8080") // Jalankan di port 8080
