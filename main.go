@@ -1,76 +1,54 @@
 package main
 
 import (
-	"fmt"
-	"net/http"
-	"time"
+	"my-project/config"
+	"my-project/handlers"
+	"my-project/models"
 
 	"github.com/gin-gonic/gin" // Framework API populer
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
 )
 
-// Ini adalah "Blueprint" data kita (Struct)
-type Task struct {
-	ID     uint   `gorm:"primaryKey;autoIncrement" json:"id"`
-	Title  string `json:"title"`
-	Status string `json:"status"`
-}
-
-var db *gorm.DB
-
-func initDB() {
-	dsn := "host=db user=user password=password dbname=taskdb port=5432 sslmode=disable"
-	var err error
-	for i := range 10 {
-		db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
-		if err == nil {
-			fmt.Println("Berhasil konek ke database!")
-			break
-		}
-		fmt.Printf("Database belum siap (percobaan %d)... menunggu 2 detik \n", i+1)
-		time.Sleep(2 * time.Second)
-	}
-
-	if err != nil {
-		panic("Gagal konek ke database setelah beberapa kali mencoba")
-	}
-
-	db.AutoMigrate(&Task{}) // Otomatis bikin tabel
-}
-
 // Pindahkan logika ini ke luar main() agar bisa dipanggil oleh file test
-func CreateTaskLogic(task Task) (Task, error) {
-	result := db.Create(&task)
+func CreateTaskLogic(task models.Task) (models.Task, error) {
+	result := config.DB.Create(&task)
 	return task, result.Error
 }
 
+// Fungsi logika untuk menghapus task
+func DeleteTaskLogic(id string) (int64, error) {
+	result := config.DB.Delete(&models.Task{}, id)
+	return result.RowsAffected, result.Error
+}
+
+func GetTaskLogic(limit int) ([]models.Task, error) {
+	var tasks []models.Task
+	// GORM akan menambahkan "LIMIT" pada query SQL-nya
+	result := config.DB.Limit(limit).Find(&tasks)
+	return tasks, result.Error
+}
+
 func main() {
-	initDB()
+	config.InitDB()
+
 	router := gin.Default()
 
 	// Endpoint untuk mengambil semua data (GET)
-	router.GET("/tasks", func(c *gin.Context) {
-		var tasks []Task
-		db.Find(&tasks)
-		c.JSON(http.StatusOK, tasks)
-	})
+	router.GET("/tasks", handlers.GetTasks)
+
+	// Endpoint untuk mengambil satu data berdasarkan ID (GET)
+	router.GET("/tasks/:id", handlers.GetTaskById)
 
 	// Endpoint untuk menambah data baru (POST)
-	router.POST("/tasks", func(c *gin.Context) {
-		var newTask Task
-		if err := c.ShouldBindJSON(&newTask); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
+	router.POST("/tasks", handlers.CreateTask)
 
-		createdTask, err := CreateTaskLogic(newTask)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal simpan"})
-			return
-		}
-		c.JSON(http.StatusCreated, createdTask)
-	})
+	// Endpoint untuk update satu task
+	router.PUT("/tasks/:id", handlers.UpdateTask)
+
+	// Endpoint untuk menghapus data (DELETE)
+	router.DELETE("/tasks/:id", handlers.DeleteTask)
+
+	// Endpoint untuk menghapus SEMUA data
+	router.DELETE("/tasks", handlers.DeleteAllTasks)
 
 	router.Run(":8080") // Jalankan di port 8080
 }
