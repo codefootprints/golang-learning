@@ -84,31 +84,50 @@ func TestDeleteTaskLogic(t *testing.T) {
 func TestCreateTaskValidation(t *testing.T) {
 	// 1. Tambahkan ini untuk membungkam log debug Gin
 	gin.SetMode(gin.ReleaseMode)
-
 	// Buat router khusus untuk test ini
 	// router := gin.Default()
-
 	// 2. Gunakan gin.New() agar tidak ada log request otomatis
 	router := gin.New()
 	router.Use(gin.Recovery()) // Agar tetap aman jika ada panic
 
 	router.POST("/tasks", handlers.CreateTask)
 
-	// Skenario: Mengirim Status yang salah (bukan Pending/Done)
-	invalidData := map[string]string{
-		"title":  "Coba Validasi",
-		"status": "Ngawur",
+	tests := []struct {
+		name       string
+		input      models.Task
+		expectCode int
+	}{
+		{
+			name: "Invalid Status",
+			input: models.Task{
+				Title:  "Belajar Go",
+				Status: "Ngawur",
+			},
+			expectCode: http.StatusBadRequest,
+		},
+		{
+			name: "Empty Title",
+			input: models.Task{
+				Status: "Pending",
+			},
+			expectCode: http.StatusBadRequest,
+		},
 	}
-	body, _ := json.Marshal(invalidData)
 
-	req, _ := http.NewRequest("POST", "/tasks", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body, _ := json.Marshal(tt.input)
 
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
+			req, _ := http.NewRequest("POST", "/tasks", bytes.NewBuffer(body))
+			req.Header.Set("Content-Type", "application/json")
 
-	// Assert: Kita ingin statusnya 400 (Bad Request)
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("Harusnya ditolak (400), tapi malah lolos (%d)", w.Code)
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			// Assert: Kita ingin statusnya 400 (Bad Request)
+			if w.Code != tt.expectCode {
+				t.Errorf("%s: Expected %d, result (%d)", tt.name, tt.expectCode, w.Code)
+			}
+		})
 	}
 }

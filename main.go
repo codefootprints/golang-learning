@@ -3,6 +3,7 @@ package main
 import (
 	"my-project/config"
 	"my-project/handlers"
+	"my-project/middlewares"
 	"my-project/models"
 
 	"github.com/gin-gonic/gin" // Framework API populer
@@ -32,23 +33,21 @@ func main() {
 
 	router := gin.Default()
 
-	// Endpoint untuk mengambil semua data (GET)
-	router.GET("/tasks", handlers.GetTasks)
+	// Rute publik (bisa diakses tanpa login)
+	router.POST("/register", handlers.Register)
+	router.POST("/login", handlers.Login)
 
-	// Endpoint untuk mengambil satu data berdasarkan ID (GET)
-	router.GET("/tasks/:id", handlers.GetTaskById)
-
-	// Endpoint untuk menambah data baru (POST)
-	router.POST("/tasks", handlers.CreateTask)
-
-	// Endpoint untuk update satu task
-	router.PUT("/tasks/:id", handlers.UpdateTask)
-
-	// Endpoint untuk menghapus data (DELETE)
-	router.DELETE("/tasks/:id", handlers.DeleteTask)
-
-	// Endpoint untuk menghapus SEMUA data
-	router.DELETE("/tasks", handlers.DeleteAllTasks)
+	// Kelompok rute yang butuh Middleware
+	authorized := router.Group("/")
+	authorized.Use(middlewares.AuthMiddleware())
+	{
+		authorized.GET("/tasks", handlers.GetTasks)
+		authorized.GET("/tasks/:id", handlers.GetTaskById)
+		authorized.POST("/tasks", handlers.CreateTask)
+		authorized.PUT("/tasks/:id", handlers.UpdateTask)
+		authorized.DELETE("/tasks/:id", handlers.DeleteTask)
+		authorized.DELETE("/tasks", handlers.DeleteAllTasks)
+	}
 
 	router.Run(":8080") // Jalankan di port 8080
 }
