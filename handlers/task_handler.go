@@ -12,6 +12,15 @@ import (
 
 // Menampilkan semua task (dengan limit)
 func GetTasks(c *gin.Context) {
+	val, exists := c.Get("currentUserID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Identitas user tidak ditemukan",
+		})
+		return
+	}
+	userID := val.(uint)
+
 	// 1. Ambil input
 	pageStr := c.DefaultQuery("page", "1")
 	limitStr := c.DefaultQuery("limit", "5")
@@ -46,7 +55,9 @@ func GetTasks(c *gin.Context) {
 	offset := (page - 1) * limit
 
 	var tasks []models.Task
-	query := config.DB.Model(&models.Task{})
+	query := config.DB.
+		Model(&models.Task{}).
+		Where("user_id = ?", userID)
 
 	// 4. Logika Bisnis (Filter & Search)
 	if search != "" {
@@ -113,9 +124,20 @@ func CreateTask(c *gin.Context) {
 
 // Menghapus task berdasarkan ID
 func DeleteTask(c *gin.Context) {
-	id := c.Param("id")
+	// Ambil ID User dari context (hasil kerja AuthMiddleware)
+	val, exists := c.Get("currentUserID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Identitas user tidak ditemukan",
+		})
+		return
+	}
+	userID := val.(uint)
 
-	result := config.DB.Delete(&models.Task{}, id)
+	taskId := c.Param("id")
+
+	// Tambahkan DB.Debug() jika ingin melihat plain query string
+	result := config.DB.Where("user_id = ? AND task_id = ?", userID, taskId).Delete(&models.Task{})
 
 	if result.RowsAffected == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"message": "Task tidak ditemukan"})

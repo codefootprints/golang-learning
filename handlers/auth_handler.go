@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"my-project/config"
 	"my-project/models"
 	"net/http"
@@ -22,6 +23,8 @@ func Register(c *gin.Context) {
 
 	// Hash Password sebelum simpan
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+	fmt.Printf("DB Password: [%s]\n", hashedPassword)
+	fmt.Printf("Plain Password: [%s]\n", input.Password)
 	input.Password = string(hashedPassword)
 
 	if err := config.DB.Create(&input).Error; err != nil {
@@ -58,12 +61,16 @@ func Login(c *gin.Context) {
 		return
 	}
 
+	fmt.Printf("Input Password: [%s]\n", input.Password)
+	fmt.Printf("DB Password: [%s]\n", user.Password)
+
 	// Cek password (Bcrypt)
-	err := bcrypt.CompareHashAndPassword([]byte(input.Password), []byte(user.Password))
+	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password))
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"error": "Username atau password salah",
 		})
+		return
 	}
 
 	// Generate JWT
