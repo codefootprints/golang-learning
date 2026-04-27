@@ -86,3 +86,18 @@ func Login(c *gin.Context) {
 		"token": tokenString,
 	})
 }
+
+func GetProfile(c *gin.Context) {
+	currentUserID, exists := c.Get("currentUserID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Identitas user tidak ditemukan",
+		})
+		return
+	}
+
+	var user models.User
+	config.DB.Preload("Tasks").Where("id = ?", currentUserID).First(&user)
+	user.Password = ""
+	c.JSON(http.StatusOK, user)
+}

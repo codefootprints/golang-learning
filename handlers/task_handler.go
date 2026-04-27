@@ -4,11 +4,20 @@ import (
 	"fmt"
 	"my-project/config"
 	"my-project/models"
+	"my-project/repositories"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
+
+// Inisialisasi repository (nanti ini bisa dipindah ke main)
+var taskRepo = repositories.TaskRepository{}
+
+type UpdateTaskInput struct {
+	Title  string `json:"title"`
+	Status string `json:"status" binding:"oneof=Pending Done"`
+}
 
 // Menampilkan semua task (dengan limit)
 func GetTasks(c *gin.Context) {
@@ -137,7 +146,7 @@ func DeleteTask(c *gin.Context) {
 	taskId := c.Param("id")
 
 	// Tambahkan DB.Debug() jika ingin melihat plain query string
-	result := config.DB.Where("user_id = ? AND task_id = ?", userID, taskId).Delete(&models.Task{})
+	result := config.DB.Where("user_id = ? AND id = ?", userID, taskId).Delete(&models.Task{})
 
 	if result.RowsAffected == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"message": "Task tidak ditemukan"})
@@ -147,11 +156,17 @@ func DeleteTask(c *gin.Context) {
 }
 
 func GetTaskById(c *gin.Context) {
+	currentUserID, exists := c.Get("currentUserID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Identitas user tidak ditemukan",
+		})
+		return
+	}
 	id := c.Param("id")
 
-	var task models.Task
-
-	if err := config.DB.First(&task, id).Error; err != nil {
+	task, err := taskRepo.GetByID(id, currentUserID.(uint))
+	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Task tidak ditemukan"})
 		return
 	}
@@ -160,21 +175,42 @@ func GetTaskById(c *gin.Context) {
 }
 
 func UpdateTask(c *gin.Context) {
+	currentUserID, _ := c.Get("currentUserID")
 	id := c.Param("id")
-	var task models.Task
 
-	if err := config.DB.First(&task, id).Error; err != nil {
+	// Cari data lewat repository
+	task, err := taskRepo.GetByID(id, currentUserID.(uint))
+
+	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Task tidak ditemukan"})
 		return
 	}
 
-	var updateData models.Task
+	// Ambil input DTO (Data Transfer Object)
+	var updateData UpdateTaskInput
 	if err := c.ShouldBindJSON(&updateData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	config.DB.Model(&task).Updates(updateData)
+	// Update lewat repository
+	err = taskRepo.Update(&task, models.Task{
+		Title:  updateData.Title,
+		Status: updateData.Status,
+	})
+
+	if err != nil {
+		// Membungkus Error
+		wrappedErr := fmt.Errorf("Update task failed for ID %s: %w", id, err)
+
+		// Cetak di log server
+		fmt.Println(wrappedErr)
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Gagal update data",
+		})
+		return
+	}
 
 	c.JSON(http.StatusOK, task)
 }

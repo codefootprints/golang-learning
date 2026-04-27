@@ -41,6 +41,7 @@ func main() {
 	authorized := router.Group("/")
 	authorized.Use(middlewares.AuthMiddleware())
 	{
+		authorized.GET("/profile", handlers.GetProfile)
 		authorized.GET("/tasks", handlers.GetTasks)
 		authorized.GET("/tasks/:id", handlers.GetTaskById)
 		authorized.POST("/tasks", handlers.CreateTask)

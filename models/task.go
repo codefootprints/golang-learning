@@ -4,7 +4,7 @@ import "gorm.io/gorm"
 
 type Task struct {
 	gorm.Model
-	Title  string `json:"title" binding:"required" gorm:"uniqueIndex"`
+	Title  string `json:"title" binding:"required"`
 	Status string `json:"status" binding:"required,oneof=Pending Done"`
 	UserID uint   `json:"user_id"` // Foreign Key ke tabel User
 
