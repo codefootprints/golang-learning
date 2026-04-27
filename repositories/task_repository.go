@@ -14,6 +14,31 @@ func (r *TaskRepository) GetByID(id string, userID uint) (models.Task, error) {
 	return task, err
 }
 
+/*
+saya mau mengonfirmasi soal baris ini:
+func (r *TaskRepository) GetByID(id string, userID uint) (models.Task, error)
+
+apakah artinya seperti ini?
+	func = memulai deklarasi fungsi
+	GetByID = nama fungsi
+	(id string, userID uint) = menentukan input yang diharapkan beserta type datanya
+	(models.Task, error) = menentukan output yang akan dihasilkan beserta type datanya
+
+kalau (r *TaskRepository) itu menjelaskannya gimana ya?
+*/
+
+func (r *TaskRepository) GetByIDAdmin(id string) (models.Task, error) {
+	var task models.Task
+	err := config.DB.First(&task, id).Error
+	return task, err
+}
+
 func (r *TaskRepository) Update(task *models.Task, data interface{}) error {
 	return config.DB.Model(task).Updates(data).Error
+}
+
+func (r *TaskRepository) UpdateStatus(taskID string, userID uint, status string) error {
+	return config.DB.Model(&models.Task{}).
+		Where("id = ? AND user_id = ?", taskID, userID).
+		Update("status", status).Error
 }

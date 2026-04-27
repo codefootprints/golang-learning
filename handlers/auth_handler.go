@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"my-project/config"
 	"my-project/models"
+	"my-project/repositories"
 	"net/http"
 	"time"
 
@@ -11,6 +12,9 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// Inisialisasi repository (nanti ini bisa dipindah ke main)
+var userRepo = repositories.UserRepository{}
 
 func Register(c *gin.Context) {
 	var input models.User
@@ -27,7 +31,8 @@ func Register(c *gin.Context) {
 	fmt.Printf("Plain Password: [%s]\n", input.Password)
 	input.Password = string(hashedPassword)
 
-	if err := config.DB.Create(&input).Error; err != nil {
+	err := userRepo.Create(&input)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Gagal membuat user",
 		})
@@ -54,7 +59,8 @@ func Login(c *gin.Context) {
 
 	// Cari user di database
 	var user models.User
-	if err := config.DB.Where("username = ?", input.Username).First(&user).Error; err != nil {
+	user, err := userRepo.FindByUsername(input.Username)
+	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"error": "Username atau password salah",
 		})
@@ -65,7 +71,7 @@ func Login(c *gin.Context) {
 	fmt.Printf("DB Password: [%s]\n", user.Password)
 
 	// Cek password (Bcrypt)
-	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password))
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password))
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"error": "Username atau password salah",
